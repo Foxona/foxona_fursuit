@@ -11,8 +11,8 @@
 #define LED_L 32
 #define LED_BUILTIN 2
 
-#define PIN_BTN1 0
-#define PIN_BTN2 17
+#define PIN_BTN1 0 // LED
+#define PIN_BTN2 17 // Fan
 
 // How many NeoPixels are attached to the Arduino?
 #define NUMPIXELS 3  // Popular NeoPixel ring size
@@ -25,10 +25,11 @@ CRGB ledsL[NUMPIXELS];
 
 #define DELAYVAL 50  // Time (in milliseconds) to pause between pixels
 
-
 Adafruit_MPU6050 mpu;
 bool mpu_available = false;
 int iter_id = 0;
+
+const int LONG_PRESS_TIME = 100; // 100 iterations
 
 void setup(void) {
   Serial.begin(115200);
@@ -69,15 +70,35 @@ bool getBtnState(int btn) {
   return (millis() > _last[btn] + DEBOUNCE_MS);
 }
 
-bool onBtnPress(int btn) {
+bool sinceBtnPress(int btn) {
+  auto duration = 0;
   if (getBtnState(btn)) {
     if (!_prev[btn]) _prev[btn] = iter_id;
-  } else _prev[btn] = 0;
-  return _prev[btn] == iter_id;
+  } else {
+    if (_prev[btn]) duration = iter_id - _prev[btn];
+    _prev[btn] = 0;
+  }
+  return duration;
+}
+
+bool onBtnPress(int btn) {
+  auto duration = sinceBtnPress(btn);
+  return duration > 0 && duration < LONG_PRESS_TIME;
+}
+
+bool onBtnLongPress(int btn) {
+  auto duration = sinceBtnPress(btn);
+  return duration > 0 && duration >= LONG_PRESS_TIME;
 }
 
 void btnLoop(uint8_t* led_mode, uint8_t* fan_mode) {
+  if (onBtnLongPress(0)) {
+    Serial.println("Button 0 long pressed: turning off");
+    *led_mode = 3;
+  }
+
   if (onBtnPress(0)) {
+    // if 500 ms have passed since the button was pressed, consider it a long press
     *led_mode = (*led_mode + 1) % NUM_LED_MODES;
     Serial.println("Button 0 pressed: switching led mode");
   }
@@ -115,21 +136,21 @@ void rainbow() {
   FastLED.showColor(rgb);
 }
 
-void red() {
-  FastLED.showColor({ 255, 0, 0 });
+void purple() {
+  CHSV hsv{ 210, 255, 255 };
+  CRGB rgb;
+  hsv2rgb_rainbow(hsv, rgb);
+  FastLED.showColor(rgb);
 }
 
-void random_color() {
-  int r = rand();
-  int g = rand();
-  int b = rand();
-  FastLED.showColor({ r, g, b });
+void light_off() {
+  FastLED.showColor({ 0, 0, 0 });
 }
 
 
 void loop_leds(uint8_t led_mode, sensors_event_t& g) {
   auto norm = [](float accel) {
-    return uint8_t(abs(accel) * 2);
+    return uint8_t(abs(accel) * 3);
   };
   static float pos[3]{ 0 };
   pos[0] += g.acceleration.x;
@@ -145,13 +166,13 @@ void loop_leds(uint8_t led_mode, sensors_event_t& g) {
       rainbow();
       break;
     case 1:
-      red();
+      purple();
       break;
     case 2:
-      random_color();
-      break;
-    case 3:
       FastLED.showColor({ norm(pos[2]), norm(pos[1]), norm(pos[0]) });
+      break;
+    case 3: 
+      light_off();
       break;
     default:
       Serial.printf("Invalid mode %d\n", led_mode);
@@ -186,7 +207,7 @@ void loop_leds(uint8_t led_mode, sensors_event_t& g) {
 uint8_t led_mode = 0;
 uint8_t fan_mode = 0;
 
-void loop() {
+void loop() {  
   iter_id++;
 
   digitalWrite(LED_BUILTIN, HIGH);  // turn the LED on (HIGH is the voltage level)
