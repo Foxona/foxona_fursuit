@@ -11,8 +11,8 @@
 #define LED_L 32
 #define LED_BUILTIN 2
 
-#define PIN_BTN1 0 // LED
-#define PIN_BTN2 17 // Fan
+#define PIN_BTN1 0   // LED
+#define PIN_BTN2 17  // Fan
 
 // How many NeoPixels are attached to the Arduino?
 #define NUMPIXELS 3  // Popular NeoPixel ring size
@@ -29,7 +29,8 @@ Adafruit_MPU6050 mpu;
 bool mpu_available = false;
 int iter_id = 0;
 
-const int LONG_PRESS_TIME = 100; // 100 iterations
+const int DEBOUNCE_TIME = 1;
+const int LONG_PRESS_TIME = 6;
 
 void setup(void) {
   Serial.begin(115200);
@@ -59,46 +60,44 @@ void setup(void) {
 }
 
 const int btnPins[] = { PIN_BTN1, PIN_BTN2 };
-long _last[] = { 0, 0 };
-int _prev[] = { 0, 0 };
-#define DEBOUNCE_MS 200
+int _last[] = { 0, 0 };
 
-bool getBtnState(int btn) {
-  auto curState = (digitalRead(btnPins[btn]) == LOW);
-  if (!curState) _last[btn] = 0;
-  else if (!_last[btn]) _last[btn] = millis();
-  return (millis() > _last[btn] + DEBOUNCE_MS);
-}
+char _btnPress = 0;
+char _btnLongPress = 0;
 
-bool sinceBtnPress(int btn) {
-  auto duration = 0;
-  if (getBtnState(btn)) {
-    if (!_prev[btn]) _prev[btn] = iter_id;
-  } else {
-    if (_prev[btn]) duration = iter_id - _prev[btn];
-    _prev[btn] = 0;
+void updateBtnPress() {
+  _btnPress = 0;
+  _btnLongPress = 0;
+  for (int btn = 0; btn < 2; btn++) {
+    auto curState = digitalRead(btnPins[btn]) == LOW;
+    auto duration = iter_id - _last[btn];
+    if (curState && !_last[btn]) _last[btn] = iter_id;
+    if (!curState && _last[btn]) _last[btn] = 0;
+    else duration = 0;
+
+    if (duration > DEBOUNCE_TIME) {
+      if (duration >= LONG_PRESS_TIME) _btnLongPress |= bit(btn);
+      else _btnPress |= bit(btn);
+    }
   }
-  return duration;
-}
-
-bool onBtnPress(int btn) {
-  auto duration = sinceBtnPress(btn);
-  return duration > 0 && duration < LONG_PRESS_TIME;
 }
 
 bool onBtnLongPress(int btn) {
-  auto duration = sinceBtnPress(btn);
-  return duration > 0 && duration >= LONG_PRESS_TIME;
+  return (bit(btn) & _btnLongPress);
+}
+bool onBtnPress(int btn) {
+  return (bit(btn) & _btnPress);
 }
 
 void btnLoop(uint8_t* led_mode, uint8_t* fan_mode) {
+  updateBtnPress();
+
   if (onBtnLongPress(0)) {
     Serial.println("Button 0 long pressed: turning off");
     *led_mode = 3;
   }
 
   if (onBtnPress(0)) {
-    // if 500 ms have passed since the button was pressed, consider it a long press
     *led_mode = (*led_mode + 1) % NUM_LED_MODES;
     Serial.println("Button 0 pressed: switching led mode");
   }
@@ -171,7 +170,7 @@ void loop_leds(uint8_t led_mode, sensors_event_t& g) {
     case 2:
       FastLED.showColor({ norm(pos[2]), norm(pos[1]), norm(pos[0]) });
       break;
-    case 3: 
+    case 3:
       light_off();
       break;
     default:
@@ -207,7 +206,7 @@ void loop_leds(uint8_t led_mode, sensors_event_t& g) {
 uint8_t led_mode = 0;
 uint8_t fan_mode = 0;
 
-void loop() {  
+void loop() {
   iter_id++;
 
   digitalWrite(LED_BUILTIN, HIGH);  // turn the LED on (HIGH is the voltage level)
