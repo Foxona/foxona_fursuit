@@ -1,10 +1,15 @@
-// Basic demo for accelerometer readings from Adafruit MPU6050
-
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
-
 #include <FastLED.h>
+// OTA stuff
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
+
+const char* ssid = "Aura Pixel 5";
+const char* password = "basscadet";
 
 // Which pin on the Arduino is connected to the NeoPixels?
 #define LED_R 12
@@ -30,7 +35,7 @@ bool mpu_available = false;
 int iter_id = 0;
 
 const int DEBOUNCE_TIME = 1;
-const int LONG_PRESS_TIME = 6;
+const int LONG_PRESS_TIME = 8;
 
 void setup(void) {
   Serial.begin(115200);
@@ -57,6 +62,26 @@ void setup(void) {
   pinMode(PIN_BTN2, INPUT_PULLUP);
   FastLED.addLeds<NEOPIXEL, LED_R>(ledsR, NUMPIXELS);
   FastLED.addLeds<NEOPIXEL, LED_L>(ledsL, NUMPIXELS);
+}
+
+bool OTA_enable = false;
+void startOTA() {
+  if (OTA_enable) ESP.restart();
+  ArduinoOTA
+    .onStart([]() {
+      FastLED.showColor({ 80, 80, 80 });
+    });
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.println("Connection Failed! Rebooting...");
+    delay(1000);
+    ESP.restart();
+  }
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  ArduinoOTA.begin();
+  OTA_enable = true;
 }
 
 const int btnPins[] = { PIN_BTN1, PIN_BTN2 };
@@ -92,6 +117,11 @@ bool onBtnPress(int btn) {
 void btnLoop(uint8_t* led_mode, uint8_t* fan_mode) {
   updateBtnPress();
 
+  if (onBtnLongPress(1)) {
+    Serial.println("Button 1 long pressed: starting OTA");
+    FastLED.showColor({ 0, 128, 0 });
+    startOTA();
+  }
   if (onBtnLongPress(0)) {
     Serial.println("Button 0 long pressed: turning off");
     *led_mode = 3;
@@ -208,6 +238,14 @@ uint8_t fan_mode = 0;
 
 void loop() {
   iter_id++;
+  if (OTA_enable) {
+    ArduinoOTA.handle();
+    static uint8_t ota_blink = 0;
+    if (iter_id % 300 == 0) ota_blink ^= 1;
+    FastLED.showColor({ ota_blink * 255, 0, 0 });
+    btnLoop(&led_mode, &fan_mode);
+    return;
+  }
 
   digitalWrite(LED_BUILTIN, HIGH);  // turn the LED on (HIGH is the voltage level)
   commandsLoop(&led_mode);
