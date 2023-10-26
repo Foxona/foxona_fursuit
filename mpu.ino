@@ -192,7 +192,7 @@ void loop_leds(uint8_t led_mode, sensors_event_t& g) {
 
   switch (led_mode) {
     case 0:
-      rainbow();
+      light_off();
       break;
     case 1:
       purple();
@@ -201,7 +201,7 @@ void loop_leds(uint8_t led_mode, sensors_event_t& g) {
       FastLED.showColor({ norm(pos[2]), norm(pos[1]), norm(pos[0]) });
       break;
     case 3:
-      light_off();
+      rainbow();
       break;
     default:
       Serial.printf("Invalid mode %d\n", led_mode);
@@ -234,7 +234,7 @@ void loop_leds(uint8_t led_mode, sensors_event_t& g) {
 // }
 
 uint8_t led_mode = 0;
-uint8_t fan_mode = 0;
+uint8_t fan_mode = 3;
 
 void loop() {
   iter_id++;
