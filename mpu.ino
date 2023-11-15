@@ -156,8 +156,9 @@ void commandsLoop(uint8_t* led_mode) {
 // led modes
 
 void rainbow() {
-  static uint8_t hue = 0;
-  hue += 1;
+  static float hue = 0;
+  hue += 0.25;
+  if (hue > 255) hue = 0;
   // fill_rainbow(ledsR, NUMPIXELS, i, 5);
   CHSV hsv{ hue, 255, 255 };
   CRGB rgb;
@@ -165,8 +166,8 @@ void rainbow() {
   FastLED.showColor(rgb);
 }
 
-void purple() {
-  CHSV hsv{ 210, 255, 255 };
+void pink() {
+  CHSV hsv{ 230, 220, 255 };
   CRGB rgb;
   hsv2rgb_rainbow(hsv, rgb);
   FastLED.showColor(rgb);
@@ -195,7 +196,7 @@ void loop_leds(uint8_t led_mode, sensors_event_t& g) {
       light_off();
       break;
     case 1:
-      purple();
+      pink();
       break;
     case 2:
       FastLED.showColor({ norm(pos[2]), norm(pos[1]), norm(pos[0]) });
