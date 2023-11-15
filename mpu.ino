@@ -25,7 +25,7 @@ CRGB ledsR[NUMPIXELS];
 CRGB ledsL[NUMPIXELS];
 
 #define PIN_FAN 4
-#define NUM_LED_MODES 4
+#define NUM_LED_MODES 5
 #define NUM_FAN_MODES 4
 
 #define DELAYVAL 50  // Time (in milliseconds) to pause between pixels
@@ -166,8 +166,15 @@ void rainbow() {
   FastLED.showColor(rgb);
 }
 
-void pink() {
-  CHSV hsv{ 230, 220, 255 };
+void light_pink() {
+  CHSV hsv{ 247, 220, 255 };
+  CRGB rgb;
+  hsv2rgb_rainbow(hsv, rgb);
+  FastLED.showColor(rgb);
+}
+
+void dark_pink() {
+  CHSV hsv{ 247, 220, 200 };
   CRGB rgb;
   hsv2rgb_rainbow(hsv, rgb);
   FastLED.showColor(rgb);
@@ -196,12 +203,15 @@ void loop_leds(uint8_t led_mode, sensors_event_t& g) {
       light_off();
       break;
     case 1:
-      pink();
+      light_pink();
       break;
     case 2:
-      FastLED.showColor({ norm(pos[2]), norm(pos[1]), norm(pos[0]) });
+      dark_pink();
       break;
     case 3:
+      FastLED.showColor({ norm(pos[2]), norm(pos[1]), norm(pos[0]) });
+      break;
+    case 4:
       rainbow();
       break;
     default:
